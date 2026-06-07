@@ -1,0 +1,266 @@
+@page "/cidadao"
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+@using AepCerta.Frontend.Models.Protocolos
+@using AepCerta.Frontend.Services
+@using Radzen
+@using Radzen.Blazor
+@inject ProtocolosApiService ProtocolosApiService
+
+<PageTitle>Cidadao</PageTitle>
+
+<RadzenStack Gap="1rem">
+    <div>
+        <h1>Area do cidadao</h1>
+        <p>Abra solicitacoes de servicos publicos e consulte o andamento pelo numero do protocolo.</p>
+    </div>
+
+    <RadzenTabs>
+        <Tabs>
+            <RadzenTabsItem Text="Solicitar servico" Icon="add_location_alt">
+                <RadzenCard>
+                    <RadzenTemplateForm TItem="ProtocoloDto" Data="@novaSolicitacao" Submit="@CriarSolicitacao">
+                        <RadzenStack Gap="1rem">
+                            <RadzenFieldset Text="Solicitacao">
+                                <RadzenRow Gap="1rem">
+                                    <RadzenColumn Size="12" SizeMD="5">
+                                        <RadzenLabel Text="Tipo de solicitacao" Component="Tipo" />
+                                        <RadzenDropDown Name="Tipo"
+                                                        @bind-Value="novaSolicitacao.Tipo"
+                                                        Data="@tiposSolicitacao"
+                                                        TextProperty="Descricao"
+                                                        ValueProperty="Codigo"
+                                                        Style="width: 100%" />
+                                        <RadzenRequiredValidator Component="Tipo" Text="Informe o tipo de solicitacao." />
+                                    </RadzenColumn>
+
+                                    <RadzenColumn Size="12" SizeMD="7">
+                                        <RadzenLabel Text="Descricao" Component="Descricao" />
+                                        <RadzenTextArea Name="Descricao"
+                                                        @bind-Value="novaSolicitacao.Descricao"
+                                                        Rows="4"
+                                                        Style="width: 100%" />
+                                        <RadzenRequiredValidator Component="Descricao" Text="Informe a descricao." />
+                                    </RadzenColumn>
+                                </RadzenRow>
+                            </RadzenFieldset>
+
+                            <RadzenFieldset Text="Endereco do local">
+                                <RadzenRow Gap="1rem">
+                                    <RadzenColumn Size="12" SizeMD="3">
+                                        <RadzenLabel Text="CEP" Component="Cep" />
+                                        <RadzenTextBox Name="Cep" @bind-Value="novaSolicitacao.Cep" Style="width: 100%" />
+                                        <RadzenRequiredValidator Component="Cep" Text="Informe o CEP." />
+                                    </RadzenColumn>
+
+                                    <RadzenColumn Size="12" SizeMD="6">
+                                        <RadzenLabel Text="Rua" Component="Rua" />
+                                        <RadzenTextBox Name="Rua" @bind-Value="novaSolicitacao.Rua" Style="width: 100%" />
+                                        <RadzenRequiredValidator Component="Rua" Text="Informe a rua." />
+                                    </RadzenColumn>
+
+                                    <RadzenColumn Size="12" SizeMD="3">
+                                        <RadzenLabel Text="Numero" Component="Numero" />
+                                        <RadzenNumeric Name="Numero" @bind-Value="novaSolicitacao.Numero" Min="1" Style="width: 100%" />
+                                        <RadzenRequiredValidator Component="Numero" Text="Informe o numero." />
+                                    </RadzenColumn>
+
+                                    <RadzenColumn Size="12" SizeMD="6">
+                                        <RadzenLabel Text="Bairro" Component="Bairro" />
+                                        <RadzenTextBox Name="Bairro" @bind-Value="novaSolicitacao.Bairro" Style="width: 100%" />
+                                        <RadzenRequiredValidator Component="Bairro" Text="Informe o bairro." />
+                                    </RadzenColumn>
+
+                                    <RadzenColumn Size="12" SizeMD="6">
+                                        <RadzenLabel Text="Complemento" Component="Complemento" />
+                                        <RadzenTextBox Name="Complemento" @bind-Value="novaSolicitacao.Complemento" Style="width: 100%" />
+                                    </RadzenColumn>
+                                </RadzenRow>
+                            </RadzenFieldset>
+
+                            <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                                <RadzenButton ButtonType="ButtonType.Submit"
+                                              Text="Enviar solicitacao"
+                                              Icon="send"
+                                              ButtonStyle="ButtonStyle.Primary"
+                                              Disabled="@carregandoSolicitacao" />
+                                <RadzenButton Text="Limpar"
+                                              Icon="restart_alt"
+                                              ButtonStyle="ButtonStyle.Light"
+                                              Click="@LimparSolicitacao"
+                                              Disabled="@carregandoSolicitacao" />
+                            </RadzenStack>
+                        </RadzenStack>
+                    </RadzenTemplateForm>
+                </RadzenCard>
+            </RadzenTabsItem>
+
+            <RadzenTabsItem Text="Consultar protocolo" Icon="search">
+                <RadzenCard>
+                    <RadzenTemplateForm TItem="ConsultaProtocoloModel" Data="@consulta" Submit="@ConsultarProtocolo">
+                        <RadzenStack Gap="1rem">
+                            <RadzenRow Gap="1rem">
+                                <RadzenColumn Size="12" SizeMD="5">
+                                    <RadzenLabel Text="Numero do protocolo" Component="NumeroProtocoloConsulta" />
+                                    <RadzenNumeric Name="NumeroProtocoloConsulta"
+                                                   @bind-Value="consulta.NumeroProtocolo"
+                                                   Min="1"
+                                                   Style="width: 100%" />
+                                    <RadzenRequiredValidator Component="NumeroProtocoloConsulta" Text="Informe o protocolo." />
+                                </RadzenColumn>
+
+                                <RadzenColumn Size="12" SizeMD="7" class="d-flex align-items-end">
+                                    <RadzenButton ButtonType="ButtonType.Submit"
+                                                  Text="Consultar"
+                                                  Icon="search"
+                                                  ButtonStyle="ButtonStyle.Primary"
+                                                  Disabled="@carregandoConsulta" />
+                                </RadzenColumn>
+                            </RadzenRow>
+
+                            @if (protocoloConsultado is not null)
+                            {
+                                <RadzenFieldset Text="Resultado">
+                                    <RadzenStack Gap="0.75rem">
+                                        <RadzenStack Orientation="Orientation.Horizontal" AlignItems="AlignItems.Center" Gap="0.75rem">
+                                            <strong>Protocolo @protocoloConsultado.NumeroProtocolo</strong>
+                                            <RadzenBadge Text="@DescricaoStatus(protocoloConsultado.Status)" BadgeStyle="@EstiloStatus(protocoloConsultado.Status)" />
+                                        </RadzenStack>
+                                        <div><strong>Tipo:</strong> @DescricaoTipo(protocoloConsultado.Tipo)</div>
+                                        <div><strong>Descricao:</strong> @protocoloConsultado.Descricao</div>
+                                        <div><strong>Endereco:</strong> @EnderecoFormatado(protocoloConsultado)</div>
+                                    </RadzenStack>
+                                </RadzenFieldset>
+                            }
+                        </RadzenStack>
+                    </RadzenTemplateForm>
+                </RadzenCard>
+            </RadzenTabsItem>
+        </Tabs>
+    </RadzenTabs>
+
+    @if (!string.IsNullOrWhiteSpace(mensagem))
+    {
+        <RadzenAlert AlertStyle="@(erro ? AlertStyle.Danger : AlertStyle.Success)"
+                     ShowIcon="true"
+                     AllowClose="true"
+                     Close="@(() => mensagem = string.Empty)">
+            @mensagem
+        </RadzenAlert>
+    }
+</RadzenStack>
+
+@code {
+    private ProtocoloDto novaSolicitacao = NovaSolicitacao();
+    private ConsultaProtocoloModel consulta = new();
+    private ProtocoloDto? protocoloConsultado;
+    private bool carregandoSolicitacao;
+    private bool carregandoConsulta;
+    private bool erro;
+    private string mensagem = string.Empty;
+
+    private readonly List<TipoSolicitacaoOption> tiposSolicitacao =
+    [
+        new(1, "Poda de arvore"),
+        new(2, "Asfaltamento na rua"),
+        new(3, "Conserto de iluminacao publica"),
+        new(4, "Limpeza"),
+        new(5, "Saude"),
+        new(6, "Seguranca escolar"),
+        new(7, "Coleta de lixo")
+    ];
+
+    private async Task CriarSolicitacao(ProtocoloDto solicitacao)
+    {
+        if (carregandoSolicitacao)
+        {
+            return;
+        }
+
+        carregandoSolicitacao = true;
+        solicitacao.Status = StatusProtocolo.Aberto;
+        var criada = await ProtocolosApiService.CriarAsync(solicitacao);
+        carregandoSolicitacao = false;
+
+        if (criada is null)
+        {
+            erro = true;
+            mensagem = "Nao foi possivel registrar a solicitacao.";
+            return;
+        }
+
+        erro = false;
+        mensagem = $"Solicitacao concluida. Guarde o numero do protocolo: {criada.NumeroProtocolo}.";
+        
+        protocoloConsultado = criada;
+        novaSolicitacao = NovaSolicitacao();
+    }
+
+    private async Task ConsultarProtocolo(ConsultaProtocoloModel model)
+    {
+        if (carregandoConsulta)
+        {
+            return;
+        }
+
+        carregandoConsulta = true;
+        protocoloConsultado = await ProtocolosApiService.ObterAsync(model.NumeroProtocolo);
+        carregandoConsulta = false;
+
+        if (protocoloConsultado is null)
+        {
+            erro = true;
+            mensagem = "Numero de protocolo nao encontrado.";
+            return;
+        }
+
+        erro = false;
+        mensagem = "Protocolo encontrado.";
+    }
+
+    private void LimparSolicitacao()
+    {
+        novaSolicitacao = NovaSolicitacao();
+        mensagem = string.Empty;
+    }
+
+    private static ProtocoloDto NovaSolicitacao() => new()
+    {
+        Tipo = 1,
+        Status = StatusProtocolo.Aberto
+    };
+
+    private string DescricaoStatus(StatusProtocolo status) => status switch
+    {
+        StatusProtocolo.Aberto => "Aberto",
+        StatusProtocolo.EmTriagem => "Em triagem",
+        StatusProtocolo.EmAndamento => "Em andamento",
+        StatusProtocolo.Resolvido => "Resolvido",
+        StatusProtocolo.Reprovado => "Reprovado",
+        _ => "Nao definido"
+    };
+
+    private BadgeStyle EstiloStatus(StatusProtocolo status) => status switch
+    {
+        StatusProtocolo.Aberto => BadgeStyle.Info,
+        StatusProtocolo.EmTriagem => BadgeStyle.Warning,
+        StatusProtocolo.EmAndamento => BadgeStyle.Primary,
+        StatusProtocolo.Resolvido => BadgeStyle.Success,
+        StatusProtocolo.Reprovado => BadgeStyle.Danger,
+        _ => BadgeStyle.Light
+    };
+
+    private string DescricaoTipo(int tipo) => tiposSolicitacao.FirstOrDefault(t => t.Codigo == tipo)?.Descricao ?? "Nao informado";
+
+    private static string EnderecoFormatado(ProtocoloDto protocolo)
+    {
+        var complemento = string.IsNullOrWhiteSpace(protocolo.Complemento) ? string.Empty : $" - {protocolo.Complemento}";
+        return $"{protocolo.Rua}, {protocolo.Numero} - {protocolo.Bairro}, CEP {protocolo.Cep}{complemento}";
+    }
+
+    private sealed class ConsultaProtocoloModel
+    {
+        public int NumeroProtocolo { get; set; }
+    }
+
+    private record TipoSolicitacaoOption(int Codigo, string Descricao);
+}

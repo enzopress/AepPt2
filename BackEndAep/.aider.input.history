@@ -1,0 +1,51 @@
+
+# 2026-06-05 16:29:09.074859
++no
+
+# 2026-06-05 16:32:09.758757
++crei os controllers de todas as entidades do meu projeto em java 
+
+# 2026-06-05 16:33:30.198372
++as entidades estao na pasta model e o controller vc pode usar como exemplo o ProtocoloController
+
+# 2026-06-05 16:35:21.537895
++deu certo?
+
+# 2026-06-05 16:37:24.770014
++crei os arquivos controller das classes dentro da pasta model, use como exemplo o ProtocoloController dentro da pasta controller \com.BackEndAep\controller\ProtocolloController
+
+# 2026-06-05 16:38:54.590828
++Cidadao
++Funcionario
++Protocolo
++StatusProtocolo
++StatusProtocoloConverter
++Usuario
+
+# 2026-06-05 16:39:39.166397
++o nome das classes são:Cidadao
++Funcionario
++Protocolo
++StatusProtocolo
++StatusProtocoloConverter
++Usuario
+
+# 2026-06-05 16:40:34.361285
++as classes/ entidades sao Cidadao,
++Funcionario,
++Protocolo,
++StatusProtocolo,
++StatusProtocoloConverter e
++Usuario
+
+# 2026-06-05 16:41:46.040673
++deve conter os mesmos metodos que a classe ProtocoloController
+
+# 2026-06-05 16:46:17.545977
++yes
+
+# 2026-06-05 16:53:26.709327
++prossiga
+
+# 2026-06-05 23:56:50.255099
++vc e muito burro

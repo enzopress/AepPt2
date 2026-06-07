@@ -1,0 +1,172 @@
+@page "/funcionario/protocolos"
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+@using AepCerta.Frontend.Models.Protocolos
+@using AepCerta.Frontend.Services
+@using Radzen
+@using Radzen.Blazor
+@inject ProtocolosApiService ProtocolosApiService
+
+<PageTitle>Protocolos</PageTitle>
+
+<h1>Painel do Funcionário</h1>
+<p>Visualize e faça CRUD dos protocolos de solicitações urbanas.</p>
+
+<RadzenButton Text="Novo protocolo" Icon="add_circle" ButtonStyle="ButtonStyle.Primary" Click="@AdicionarNovo" class="mb-3" />
+
+<RadzenDataGrid @ref="grid"
+                Data="@protocolos"
+                TItem="ProtocoloDto"
+                EditMode="DataGridEditMode.Single"
+                RowUpdate="@AtualizarRegistro"
+                RowCreate="@CriarRegistro"
+                AllowPaging="true"
+                AllowSorting="true"
+                PageSize="10">
+    <Columns>
+        <RadzenDataGridColumn TItem="ProtocoloDto" Property="NumeroProtocolo" Title="Protocolo" Width="120px" />
+        <RadzenDataGridColumn TItem="ProtocoloDto" Property="Tipo" Title="Tipo">
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="ProtocoloDto" Property="Descricao" Title="Descrição"  />
+        <RadzenDataGridColumn TItem="ProtocoloDto" Property="Cep" Title="CEP" Width="120px"  />
+        <RadzenDataGridColumn TItem="ProtocoloDto" Property="Rua" Title="Rua"  />
+        <RadzenDataGridColumn TItem="ProtocoloDto" Property="Numero" Title="Nº" Width="90px" />
+        <RadzenDataGridColumn TItem="ProtocoloDto" Property="Bairro" Title="Bairro"/>
+        <RadzenDataGridColumn TItem="ProtocoloDto" Property="Complemento" Title="Complemento"  />
+        <RadzenDataGridColumn TItem="ProtocoloDto" Property="Status" Title="Status" Width="170px">
+            <Template Context="item">@DescricaoStatus(item.Status)</Template>
+            <EditTemplate Context="item">
+                <RadzenDropDown @bind-Value="item.Status"
+                                Data="@statusDisponiveis"
+                                Style="width: 100%" />
+            </EditTemplate>
+        </RadzenDataGridColumn>
+        <RadzenDataGridColumn TItem="ProtocoloDto" Title="Ações" Sortable="false" Filterable="false" Width="180px" TextAlign="TextAlign.Center">
+            <Template Context="item">
+                <RadzenButton Icon="edit" Size="ButtonSize.Small" Click="@(args => Editar(item))" class="me-2" />
+                <RadzenButton Icon="delete" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Danger" Click="@(args => Excluir(item))" />
+            </Template>
+            <EditTemplate Context="item">
+                <RadzenButton Icon="check" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Success" Click="@(args => Salvar(item))" class="me-2" />
+                <RadzenButton Icon="close" Size="ButtonSize.Small" ButtonStyle="ButtonStyle.Light" Click="@(args => CancelarEdicao(item))" />
+            </EditTemplate>
+        </RadzenDataGridColumn>
+    </Columns>
+</RadzenDataGrid>
+
+@if (!string.IsNullOrWhiteSpace(mensagem))
+{
+    <div class="alert @(erro ? "alert-danger" : "alert-success") mt-3">@mensagem</div>
+}
+
+@code {
+    private RadzenDataGrid<ProtocoloDto>? grid;
+    private List<ProtocoloDto> protocolos = new();
+    private bool erro;
+    private string mensagem = string.Empty;
+
+    private readonly List<TipoSolicitacaoOption> tiposSolicitacao =
+    [
+        new(1, "Poda de árvore"),
+        new(2, "Asfaltamento na rua"),
+        new(3, "Conserto de iluminação pública"),
+        new(4, "Limpeza"),
+        new(5, "Saúde"),
+        new(6, "Segurança escolar"),
+        new(7, "Coleta de lixo")
+    ];
+
+    private readonly List<StatusProtocolo> statusDisponiveis =
+    [
+        StatusProtocolo.Aberto,
+        StatusProtocolo.EmTriagem,
+        StatusProtocolo.EmAndamento,
+        StatusProtocolo.Resolvido,
+        StatusProtocolo.Reprovado
+    ];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CarregarProtocolos();
+    }
+
+    private async Task CarregarProtocolos()
+    {
+        protocolos = await ProtocolosApiService.ListarAsync();
+    }
+
+    private async Task AdicionarNovo()
+    {
+        var novo = new ProtocoloDto
+        {
+            Tipo = 1
+        };
+        protocolos.Insert(0, novo);
+        await grid!.InsertRow(novo);
+    }
+
+    private async Task CriarRegistro(ProtocoloDto protocolo)
+    {
+        var criado = await ProtocolosApiService.CriarAsync(protocolo);
+        if (criado is null)
+        {
+            erro = true;
+            mensagem = "Nao foi possivel criar o protocolo.";
+            return;
+        }
+
+        erro = false;
+        mensagem = "Protocolo criado com sucesso.";
+        await CarregarProtocolos();
+    }
+
+    private async Task AtualizarRegistro(ProtocoloDto protocolo)
+    {
+        var atualizado = await ProtocolosApiService.AtualizarAsync(protocolo);
+        if (atualizado is null)
+        {
+            erro = true;
+            mensagem = "Nao foi possivel atualizar o protocolo.";
+            return;
+        }
+
+        erro = false;
+        mensagem = "Protocolo atualizado com sucesso.";
+    }
+
+    private void Editar(ProtocoloDto protocolo) => grid!.EditRow(protocolo);
+
+    private async Task Salvar(ProtocoloDto protocolo) => await grid!.UpdateRow(protocolo);
+
+    private void CancelarEdicao(ProtocoloDto protocolo)
+    {
+        grid!.CancelEditRow(protocolo);
+    }
+
+    private async Task Excluir(ProtocoloDto protocolo)
+    {
+        if (protocolo.NumeroProtocolo == 0)
+        {
+            protocolos.Remove(protocolo);
+            return;
+        }
+
+        await ProtocolosApiService.ExcluirAsync(protocolo.NumeroProtocolo);
+        protocolos.Remove(protocolo);
+        erro = false;
+        mensagem = "Protocolo excluido com sucesso.";
+    }
+
+    private string DescricaoStatus(StatusProtocolo status) => status switch
+    {
+        StatusProtocolo.Aberto => "Aberto",
+        StatusProtocolo.EmTriagem => "Em triagem",
+        StatusProtocolo.EmAndamento => "Em andamento",
+        StatusProtocolo.Resolvido => "Resolvido",
+        StatusProtocolo.Reprovado => "Reprovado",
+        _ => "Nao definido"
+    };
+
+    private string DescricaoTipo(int tipo) => tiposSolicitacao.FirstOrDefault(t => t.Codigo == tipo)?.Descricao ?? "Nao informado";
+
+    private record TipoSolicitacaoOption(int Codigo, string Descricao);
+}

@@ -1,0 +1,159 @@
+@page "/login"
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+@using AepCerta.Frontend.Models.Auth
+@inject AepCerta.Frontend.Services.AuthApiService AuthApiService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Login</PageTitle>
+
+<h1>AepCerta - Acesso por Perfil</h1>
+
+<p>Escolha o perfil para seguir o fluxo do projeto: cidadão (CPF) ou funcionário (matrícula).</p>
+
+<div class="mb-3">
+    <label class="form-label">Perfil</label>
+    <InputSelect class="form-select" @bind-Value="perfilSelecionado">
+        <option value="@PerfilAcesso.Cidadao">Cidadão</option>
+        <option value="@PerfilAcesso.Funcionario">Funcionário</option>
+    </InputSelect>
+</div>
+
+<div class="mb-3">
+    <button class="btn @(isRegisterMode ? "btn-outline-primary" : "btn-primary") me-2" @onclick="() => AlternarModo(false)">
+        Login
+    </button>
+    <button class="btn @(!isRegisterMode ? "btn-outline-primary" : "btn-primary")" @onclick="() => AlternarModo(true)">
+        Registrar
+    </button>
+</div>
+
+@if (isRegisterMode)
+{
+    <EditForm Model="registerModel" OnValidSubmit="Registrar">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="mb-3">
+            <label class="form-label">Nome</label>
+            <InputText class="form-control" @bind-Value="registerModel.Nome" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">@LabelIdentificador</label>
+            <InputText class="form-control" @bind-Value="registerModel.Identificador" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Senha</label>
+            <InputText class="form-control" @bind-Value="registerModel.Senha" type="password" />
+        </div>
+
+        <button class="btn btn-success" disabled="@isLoading">Criar conta</button>
+    </EditForm>
+}
+else
+{
+    <EditForm Model="loginModel" OnValidSubmit="EfetuarLogin">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="mb-3">
+            <label class="form-label">@LabelIdentificador</label>
+            <InputText class="form-control" @bind-Value="loginModel.Identificador" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Senha</label>
+            <InputText class="form-control" @bind-Value="loginModel.Senha" type="password" />
+        </div>
+
+        <button class="btn btn-primary" disabled="@isLoading">Entrar</button>
+    </EditForm>
+}
+
+@if (!string.IsNullOrWhiteSpace(mensagem))
+{
+    <div class="alert @(sucesso ? "alert-success" : "alert-danger") mt-3">
+        @mensagem
+    </div>
+}
+
+@code {
+    private bool isRegisterMode;
+    private bool isLoading;
+    private bool sucesso;
+    private string mensagem = string.Empty;
+    private PerfilAcesso perfilSelecionado = PerfilAcesso.Cidadao;
+    private readonly RegisterRequest registerModel = new();
+    private readonly LoginRequest loginModel = new();
+    private string LabelIdentificador => perfilSelecionado == PerfilAcesso.Cidadao ? "CPF" : "Matrícula";
+
+    private void AlternarModo(bool registerMode)
+    {
+        isRegisterMode = registerMode;
+        mensagem = string.Empty;
+    }
+
+    private async Task Registrar()
+    {
+        if (isLoading)
+        {
+            return;
+        }
+
+        isLoading = true;
+        var resposta = perfilSelecionado == PerfilAcesso.Cidadao
+            ? await AuthApiService.RegistrarCidadaoAsync(registerModel)
+            : await AuthApiService.RegistrarFuncionarioAsync(registerModel);
+        sucesso = resposta.Sucesso;
+        mensagem = resposta.Mensagem;
+        isLoading = false;
+    }
+
+    private async Task EfetuarLogin()
+    {
+        if (isLoading)
+        {
+            return;
+        }
+
+        try
+        {
+            isLoading = true;
+
+            var resposta = perfilSelecionado == PerfilAcesso.Cidadao
+                ? await AuthApiService.LoginCidadaoAsync(loginModel)
+                : await AuthApiService.LoginFuncionarioAsync(loginModel);
+
+            sucesso = resposta.Sucesso;
+            mensagem = resposta.Mensagem;
+
+            if (resposta.Sucesso)
+            {
+                if (perfilSelecionado == PerfilAcesso.Cidadao)
+                {
+                    NavigationManager.NavigateTo("/cidadao");
+                }
+                else
+                {
+                    NavigationManager.NavigateTo("/funcionario/protocolos");
+                }
+            }
+            else
+            {
+                mensagem = string.IsNullOrWhiteSpace(resposta.Mensagem)
+                    ? "Usuário ou senha inválidos."
+                    : resposta.Mensagem;
+            }
+        }
+        catch (Exception ex)
+        {
+            sucesso = false;
+            mensagem = $"Erro ao realizar login: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}
